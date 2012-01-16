@@ -1,6 +1,12 @@
 use XML::LibXML::Reader;
 use strict;
 
+# Export data from hudson configuration files and print them to the std output. 
+#
+# 
+#
+
+# Hudson home directory
 my $hudson_dir    = "hudson";
 my $hudson_config = "$hudson_dir/config.xml";
 
@@ -11,15 +17,21 @@ parseHudsonConfig($hudson_config);
 
 #print "Number of jobs: $#jobs \n";
 #print "Number of slaves: $#slaves \n";
-#genSlavesTable(@slaves);
-#exit ;
 
 my $jobsConfig = {};
 foreach my $job (@jobs) {
 	$jobsConfig->{$job}->{"job.name"} = $job;
 	parseJobConfig( $hudson_dir, $job);
 }
+
+
+# Print Executors table
+genSlavesTable(@slaves);
+
+# Print Jobs table 
 genJobsTable($jobsConfig);
+
+
 
 ########################################################
 
