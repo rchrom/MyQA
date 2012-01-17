@@ -68,6 +68,7 @@ sub genJobsTable {
 	my @keys    = keys %$hashref;
 	print
 	  "||Job Name||Description||SCM Source||SCM URL||Branch||Job Command||\n";
+	  @keys = sort {lc($a) cmp lc($b)} @keys;
 	foreach (@keys) {
 		my $hash = $hashref->{$_};
 		print "|", $hash->{"job.name"}, "|",
