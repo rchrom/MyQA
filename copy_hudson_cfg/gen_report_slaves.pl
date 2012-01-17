@@ -1,9 +1,11 @@
+#!/usr/bin/perl
+
 use XML::LibXML::Reader;
 use strict;
 
-# Export data from hudson configuration files and print them to the std output. 
+# Export data from hudson configuration files and print them to the std output.
 #
-# 
+#
 #
 
 # Hudson home directory
@@ -19,30 +21,43 @@ parseHudsonConfig($hudson_config);
 #print "Number of slaves: $#slaves \n";
 
 my $jobsConfig = {};
+
+getJobList( $hudson_dir . "/jobs" );
+
 foreach my $job (@jobs) {
 	$jobsConfig->{$job}->{"job.name"} = $job;
-	parseJobConfig( $hudson_dir, $job);
+	parseJobConfig( $hudson_dir, $job );
 }
 
-
 # Print Executors table
-genSlavesTable(@slaves);
+#genSlavesTable(@slaves);
 
-# Print Jobs table 
+# Print Jobs table
 genJobsTable($jobsConfig);
 
-
-
+########################################################
+sub getJobList {
+	my $jobsDir = shift;
+	opendir( DIR, $jobsDir )
+	  || die "Error in openning dir ${hudson_dir}/jobs \n";
+	while (my $file = readdir(DIR) ) {
+		# skip .* and files
+		next if grep { /^\./ || -f "$jobsDir/config.xml" } $file;
+		push(@jobs, $file);
+	}
+	closedir DIR;
+}
 ########################################################
 
 sub genSlavesTable {
 	print "||hostname||Build Executor||Description||Executors count||Label||\n";
 	foreach my $hash (@_) {
-		print "|".$hash->{"host"} . "|"
+		print "|"
+		  . $hash->{"host"} . "|"
 		  . $hash->{"name"} . "|"
 		  . $hash->{"desc"} . "|"
 		  . $hash->{"executors"} . "|"
-		  . $hash->{"label"} ."|\n";
+		  . $hash->{"label"} . "|\n";
 	}
 }
 
@@ -51,13 +66,16 @@ sub genSlavesTable {
 sub genJobsTable {
 	my $hashref = shift;
 	my @keys    = keys %$hashref;
-	print "||Job Name||Description||SCM Source||SCM URL||Branch||Job Command||\n"
-	  ;
+	print
+	  "||Job Name||Description||SCM Source||SCM URL||Branch||Job Command||\n";
 	foreach (@keys) {
 		my $hash = $hashref->{$_};
-		print "|", $hash->{"job.name"}, "|", $hash->{"desc"}?$hash->{"desc"}:'-', "|",
-		  $hash->{"scm.source"}?$hash->{"scm.source"}:'-', "|", $hash->{"scm.url"}?$hash->{"scm.url"}:'-', "|",
-		  $hash->{"scm.branch"}?$hash->{"scm.branch"}:'-', "|", $hash->{"command"}?$hash->{"command"}:'-', "|\n";
+		print "|", $hash->{"job.name"}, "|",
+		  $hash->{"desc"}       ? $hash->{"desc"}            : '-', "|",
+		  $hash->{"scm.source"} ? $hash->{"scm.source"}      : '-', "|",
+		  $hash->{"scm.url"}    ? "[".$hash->{"scm.url"}."]" : '-', "|",
+		  $hash->{"scm.branch"} ? $hash->{"scm.branch"}      : '-', "|",
+		  $hash->{"command"}    ? "{noformat}".$hash->{"command"}."{noformat}" : '-', "|\n";
 	}
 }
 
@@ -66,9 +84,9 @@ sub genJobsTable {
 sub parseJobConfig {
 	( my $hudson_dir, my $job ) = @_;
 
-	my $jobConfigFile = "$hudson_dir/$job/config.xml";
+	my $jobConfigFile = "$hudson_dir/jobs/$job/config.xml";
 
-	die "Configuration file not found for job: $job" unless -f $jobConfigFile;
+	die "Configuration file not found: $hudson_dir/jobs/$job/config.xml" unless -f $jobConfigFile;
 
 	my $reader = XML::LibXML::Reader->new( location => "$jobConfigFile" )
 	  or die "cannot read $jobConfigFile\n";
@@ -101,24 +119,25 @@ sub parseJobConfig {
 		  if ( ( $reader->name eq 'branch' )
 			&& ( $reader->nodeType == XML_READER_TYPE_ELEMENT ) );
 
-		  if ( ( $reader->name eq 'command' )
-			&& ( $reader->nodeType == XML_READER_TYPE_ELEMENT ) ) {
-				my $command = getNodeValue($reader);
-				$command =~ s/\n/\\\\\n /g;
-				$command =~ s/\|/\\\|/g;
-				$jobsConfig->{$job}->{"command"} = $command;
-			};
+		if (   ( $reader->name eq 'command' )
+			&& ( $reader->nodeType == XML_READER_TYPE_ELEMENT ) )
+		{
+			my $command = getNodeValue($reader);
+			#$command =~ s/\n/\\\\\n /g;
+			#$command =~ s/\|/\\\|/g;
+			$jobsConfig->{$job}->{"command"} = $command;
+		}
 
-		 if ( ( $reader->name eq 'description' )
-			&& ( $reader->nodeType == XML_READER_TYPE_ELEMENT ) ){
-				my $desc = getNodeValue($reader);
-				$desc =~ s/\n/\\\\\n /g;
-				$desc =~ s/\|/\\\|/g;
-				$jobsConfig->{$job}->{"desc"} = $desc;
-			};
+		if (   ( $reader->name eq 'description' )
+			&& ( $reader->nodeType == XML_READER_TYPE_ELEMENT ) )
+		{
+			my $desc = getNodeValue($reader);
+			$desc =~ s/\n/\\\\\n /g;
+			$desc =~ s/\|/\\\|/g;
+			$jobsConfig->{$job}->{"desc"} = $desc;
+		}
 	}
 }
-
 
 ##############################################
 
@@ -131,17 +150,6 @@ sub parseHudsonConfig {
 		processSlave($reader)
 		  if ( ( $reader->name eq 'slave' )
 			&& ( $reader->nodeType == XML_READER_TYPE_ELEMENT ) );
-		processView($reader)
-		  if ( ( $reader->name eq 'views' )
-			&& ( $reader->nodeType == XML_READER_TYPE_ELEMENT ) );
-
-	}
-	{    # uniq job names
-		my %hash;
-		for (@jobs) {
-			$hash{$_} = 1;
-		}
-		@jobs = keys(%hash);
 	}
 }
 
@@ -198,24 +206,6 @@ sub processSlave {
 			"host"      => $slaveHost
 		}
 	);
-}
-
-##############################################
-
-sub processView {
-	my $reader = shift;
-	while (
-		( $reader->read )
-		&& !(
-			   ( $reader->name eq 'views' )
-			&& ( $reader->nodeType == XML_READER_TYPE_END_ELEMENT )
-		)
-	  )
-	{
-		push( @jobs, getNodeValue($reader) )
-		  if ( ( $reader->name eq 'string' )
-			&& ( $reader->nodeType == XML_READER_TYPE_ELEMENT ) );
-	}
 }
 
 ##############################################
