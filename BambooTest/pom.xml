@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+
+	<modelVersion>4.0.0</modelVersion>
+	<groupId>com.gooddata.qa</groupId>
+	<artifactId>hello-world</artifactId>
+	<packaging>jar</packaging>
+	<version>1.0-SNAPSHOT</version>
+
+	<name>GDC Web App Server</name>
+	<url>http://www.gooddata.com/</url>
+
+	<dependencies>
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+		</dependency>
+	</dependencies>
+	<build>
+		<pluginManagement>
+
+			<plugins>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-source-plugin</artifactId>
+					<version>2.0.4</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-javadoc-plugin</artifactId>
+					<version>2.3</version>
+				</plugin>
+			</plugins>
+		</pluginManagement>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-source-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-sources</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<executions>
+					<execution>
+						<id>attach-javadocs</id>
+						<goals>
+							<goal>jar</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>junit</groupId>
+				<artifactId>junit</artifactId>
+				<version>4.8.1</version>
+				<scope>test</scope>
+			</dependency>
+
+
+		</dependencies>
+	</dependencyManagement>
+	<distributionManagement>
+		<repository>
+			<id>gdgooddatapoc</id>
+			<name>gdgooddatapoc-releases</name>
+			<url>http://gdgooddatapoc.artifactoryonline.com/gdgooddatapoc/gooddata-releases</url>
+		</repository>
+		<snapshotRepository>
+			<id>gdgooddatapoc</id>
+			<name>gdgooddatapoc-snapshots</name>
+			<url>http://gdgooddatapoc.artifactoryonline.com/gdgooddatapoc/gooddata-snapshots</url>
+		</snapshotRepository>
+	</distributionManagement>
+
+</project>
