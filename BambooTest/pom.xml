@@ -84,5 +84,9 @@
 			<url>http://gdgooddatapoc.artifactoryonline.com/gdgooddatapoc/gooddata-snapshots</url>
 		</snapshotRepository>
 	</distributionManagement>
-
+	<scm>
+        <connection>scm:git:git@github.com:rchrom/MyQA.git</connection>
+        <developerConnection>scm:git:git@github.com:rchrom/MyQA.git</developerConnection>
+        <url>https://github.com/rchrom/MyQA</url>
+    </scm>
 </project>
