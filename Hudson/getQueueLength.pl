@@ -24,7 +24,7 @@ sub download_previous_report {
 	my $ua     = new LWP::UserAgent;
 
 	my $fileContent = $ua->request(
-		GET( new URI("lastSuccessfulBuild/artifact/$LOGFILE")->abs($uri) ) )
+		GET( new URI("lastSuccessfulBuild/artifact/Hudson/$LOGFILE")->abs($uri) ) )
 	  ->decoded_content;
 	$fileContent = "" unless $fileContent;
 	open( OUTFILE, ">", $LOGFILE );
