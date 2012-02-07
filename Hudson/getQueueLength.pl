@@ -10,7 +10,7 @@ use strict;
 use warnings;
 use Env qw(JOB_URL);
 
-my $LOGFILE = "queue-length.csv";
+my $LOGFILE = "queue-length.txt";
 my $HUDSON  = 'http://hudson.qa/hudson/';
 
 download_previous_report();
