@@ -69,7 +69,7 @@ sub gen_report {
 	print "Queue size: $#array \n";
 	open( OUTFILE, ">>", $LOGFILE );
 	foreach my $item (@array) {
-		print OUTFILE "${year}${mon}${mday}_${hour}${min}", $CSVSEPARATOR,
+		print OUTFILE "${year}-${mon}-${mday} ${hour}:${min}", $CSVSEPARATOR,
 		  $#{array}, $CSVSEPARATOR, $item->{"task"}->{"name"}, $CSVSEPARATOR,
 		  $item->{"why"}, "\n";
 	}
