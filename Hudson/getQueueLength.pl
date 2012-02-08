@@ -62,6 +62,7 @@ sub gen_report {
 	$mon++;
 	$mon  = "0" . $mon  if $mon < 10;
 	$mday = "0" . $mday if $mday < 10;
+	$hour = "0" . $hour if $hour < 10;
 	my $CSVSEPARATOR = ";";
 
 	print "Queue size: $#array \n";
