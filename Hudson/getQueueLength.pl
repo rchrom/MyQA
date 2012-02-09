@@ -19,7 +19,11 @@ gen_report();
 
 sub download_previous_report {
 
+	# skip loading previous report if JOB_URL is not defined
+
+	return unless defined( $JOB_URL);
 	my $jobUrl = "$JOB_URL";
+	
 	my $uri    = new URI($jobUrl);
 	my $ua     = new LWP::UserAgent;
 
@@ -69,10 +73,15 @@ sub gen_report {
 	print "Queue size: $#array \n";
 	open( OUTFILE, ">>", $LOGFILE );
 	foreach my $item (@array) {
+		my $reason = $item->{"why"}; 
+		$reason = "Build in progress" if $reason =~ "Build #.* is already in progress.*";
+		$reason = "Offline node: $1" if $reason =~ "All nodes of label '\(.*\)' are offline";
+		$reason = "Bussy node: $1" if $reason =~ "Waiting for next available executor on \(.*\)";
+		$reason = "In the quiet period" if $reason =~ "In the quiet period. Expires in .*";
+		
 		print OUTFILE "${year}-${mon}-${mday} ${hour}:${min}", $CSVSEPARATOR,
 		  $#{array}, $CSVSEPARATOR, $item->{"task"}->{"name"}, $CSVSEPARATOR,
-		  $item->{"why"}, "\n";
+		  $reason, "\n";
 	}
 	close(OUTFILE);
 }
-
