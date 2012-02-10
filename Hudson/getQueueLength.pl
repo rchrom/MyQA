@@ -2,6 +2,7 @@
 # Copyright (C) 2007-2011, GoodData(R) Corporation. All rights reserved.
 
 use LWP::UserAgent;
+use LWP::Simple;
 use HTTP::Request::Common;
 use URI;
 use JSON;
@@ -14,28 +15,20 @@ my $LOGFILE = "queue-length.txt";
 my $HUDSON  = 'http://hudson.qa/hudson/';
 
 download_previous_report();
-
 gen_report();
+upload_to_secure();
+
 
 sub download_previous_report {
-
 	# skip loading previous report if JOB_URL is not defined
-	return unless defined($JOB_URL);
-
-	my $jobUrl = "$JOB_URL";
-
-	my $uri = new URI($jobUrl);
-	my $ua  = new LWP::UserAgent;
-
-	my $fileContent = $ua->request(
-		GET(
-			new URI("lastSuccessfulBuild/artifact/Hudson/$LOGFILE")->abs($uri)
-		)
-	)->decoded_content;
-	$fileContent = "" unless $fileContent;
-	open( OUTFILE, ">", $LOGFILE );
-	print OUTFILE $fileContent, "\n";
-	close(OUTFILE);
+	if (defined($JOB_URL)) {
+		print "Downloading previous statistics ...";
+		my $code = getstore("$JOB_URL/lastSuccessfulBuild/artifact/Hudson/$LOGFILE","$LOGFILE");
+		die "Unable to download statistics. " if $code != 200;
+		print "...downloaded.\n";
+	} else {
+		print "\$JOB_URL is not defined, creating new one";
+	}
 }
 
 sub get_hudson_queue {
@@ -43,14 +36,14 @@ sub get_hudson_queue {
 	my $hudson_root = new URI($HUDSON);
 	my $ua          = new LWP::UserAgent;
 
-	#print "Request to hudson...";
+	print "Request to hudson for queue...";
 
 	my $queue = decode_json(
 		$ua->request( GET( new URI('queue/api/json')->abs($hudson_root) ) )
 		  ->decoded_content );
-	die 'Failed to get Queue' unless $queue;
+	die 'Failed to download queue' unless $queue;
 
-	#print "responce received\n";
+	print "...received.\n";
 
 	return $queue;
 }
@@ -98,4 +91,26 @@ sub gen_report {
 		}
 	}
 	close(OUTFILE);
+}
+
+sub upload_to_secure {
+	my $cliversion = "1.2.48";
+	my $zipname    = "gooddata-cli-${cliversion}";
+
+	unless ( -d "gooddata-cli-${cliversion}" ) {
+
+		# download and extract new version
+		unless ( -f "$zipname.zip" ) {
+			print "Downloading CLI tool...";
+			my $code = getstore("https://github.com/downloads/gooddata/GoodData-CL/$zipname.zip","$zipname");
+			die "Unable to download cli tool version ${zipname}.zip errcode: $code" if $code != 200;
+			print "...downloaded.\n";
+			
+		}
+		print "Unpacking data... from $zipname\n";
+		system("unzip $zipname.zip");		
+	}
+	print "Upload data to secure...";
+	die "Unable to upload to secure." if system("./$zipname/bin/gdi.sh -h secure.gooddata.com -u radek.chromy+hudson\@gooddata.com -p 5up3r74jn3h3510 getQueueLength.script.txt");
+	print "uploaded.\n"
 }

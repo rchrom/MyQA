@@ -1,0 +1,28 @@
+<!-- See documentation at http://developer.gooddata.com/gooddata-cl/xml-config.html -->
+
+<schema>
+  <name>queuelength</name>
+  <title>queue-length</title>
+  <columns>
+    <column>
+      <name>date</name>
+      <title>Date</title>
+      <ldmType>ATTRIBUTE</ldmType>
+    </column>
+    <column>
+      <name>queue</name>
+      <title>Queue</title>
+      <ldmType>FACT</ldmType>
+    </column>
+    <column>
+      <name>job</name>
+      <title>Job</title>
+      <ldmType>ATTRIBUTE</ldmType>
+    </column>
+    <column>
+      <name>reasons</name>
+      <title>Reasons</title>
+      <ldmType>ATTRIBUTE</ldmType>
+    </column>
+  </columns>
+</schema>

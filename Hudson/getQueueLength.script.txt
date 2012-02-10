@@ -1,0 +1,3 @@
+OpenProject(id="27s1vfxpjr065yy3y8d03b5n17cmy0ep");
+UseCsv(csvDataFile="queue-length.txt", configFile="queue-length.xml", separator=";");
+TransferData(incremental="false");
