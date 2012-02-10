@@ -102,12 +102,12 @@ sub upload_to_secure {
 		# download and extract new version
 		unless ( -f "$zipname.zip" ) {
 			print "Downloading CLI tool...";
-			my $code = getstore("https://github.com/downloads/gooddata/GoodData-CL/$zipname.zip","$zipname");
+			my $code = getstore("https://github.com/downloads/gooddata/GoodData-CL/$zipname.zip","$zipname.zip");
 			die "Unable to download cli tool version ${zipname}.zip errcode: $code" if $code != 200;
 			print "...downloaded.\n";
 			
 		}
-		print "Unpacking data... from $zipname\n";
+		print "Unpacking data... from $zipname.zip\n";
 		system("unzip $zipname.zip");		
 	}
 	print "Upload data to secure...";
