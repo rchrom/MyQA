@@ -14,33 +14,40 @@ use Env qw(JOB_URL);
 my $LOGFILE = "queue-length.txt";
 my $HUDSON  = 'http://hudson.qa/hudson/';
 
-download_previous_report();
-gen_report();
-upload_to_secure();
+# CL tool source
+my $clzipname      = "gooddata-cli-1.2.48";
+my $mainCLUrl      = "${HUDSON}job/GoodData%20CL/lastSuccessfulBuild/artifact/cli-distro/target";
+my $alternateCLUrl = "https://github.com/downloads/gooddata/GoodData-CL";
 
+## MAIN
+download_previous_report();    # skip if $JOB_URL is not defined
+gen_report();                  # generate actual state of hudson queue
+upload_to_secure();            # skip if download previsous report failed
+## END
 
+# Download previous report from Job storage if any
 sub download_previous_report {
+
 	# skip loading previous report if JOB_URL is not defined
-	if (defined($JOB_URL)) {
+	if ( defined($JOB_URL) ) {
 		print "Downloading previous statistics ...";
-		my $code = getstore("$JOB_URL/lastSuccessfulBuild/artifact/Hudson/$LOGFILE","$LOGFILE");
+		my $code = getstore( "$JOB_URL/lastSuccessfulBuild/artifact/Hudson/$LOGFILE", "$LOGFILE" );
 		die "Unable to download statistics. " if $code != 200;
 		print "...downloaded.\n";
-	} else {
+	}
+	else {
 		print "\$JOB_URL is not defined, creating new one";
 	}
 }
 
-sub get_hudson_queue {
-
+# Get hudson queue information in hash
+sub _get_hudson_queue {
 	my $hudson_root = new URI($HUDSON);
 	my $ua          = new LWP::UserAgent;
 
 	print "Request to hudson for queue...";
 
-	my $queue = decode_json(
-		$ua->request( GET( new URI('queue/api/json')->abs($hudson_root) ) )
-		  ->decoded_content );
+	my $queue = decode_json( $ua->request( GET( new URI('queue/api/json')->abs($hudson_root) ) )->decoded_content );
 	die 'Failed to download queue' unless $queue;
 
 	print "...received.\n";
@@ -48,15 +55,13 @@ sub get_hudson_queue {
 	return $queue;
 }
 
+# generate csv report
 sub gen_report {
-	my $queue     = get_hudson_queue;
+	my $queue     = _get_hudson_queue;
 	my $array_ref = $queue->{"items"};
 	my @array     = @$array_ref;
 
-	(
-		my $sec,  my $min,  my $hour, my $mday, my $mon,
-		my $year, my $wday, my $yday, my $isdst
-	) = localtime(time);
+	( my $sec, my $min, my $hour, my $mday, my $mon, my $year, my $wday, my $yday, my $isdst ) = localtime(time);
 	$year += 1900;
 	$mon++;
 	$mon  = "0" . $mon  if $mon < 10;
@@ -93,24 +98,58 @@ sub gen_report {
 	close(OUTFILE);
 }
 
-sub upload_to_secure {
-	my $cliversion = "1.2.48";
-	my $zipname    = "gooddata-cli-${cliversion}";
+# download cl tool and unpack to subfolder
+# returns: folder where cltool is unpacked
+sub _get_cl_tool {
 
-	unless ( -d "gooddata-cli-${cliversion}" ) {
+	# determine where from cli tool is going to be downloaded.
+	my $clzipurl = $mainCLUrl;
 
-		# download and extract new version
-		unless ( -f "$zipname.zip" ) {
-			print "Downloading CLI tool...";
-			my $code = getstore("https://github.com/downloads/gooddata/GoodData-CL/$zipname.zip","$zipname.zip");
-			die "Unable to download cli tool version ${zipname}.zip errcode: $code" if $code != 200;
-			print "...downloaded.\n";
-			
-		}
-		print "Unpacking data... from $zipname.zip\n";
-		system("unzip $zipname.zip");		
+	print "Search for the cli tool on '$clzipurl' ...";
+	my $content = get("$clzipurl/*.zip");
+	if ( $content =~ '/.*>(gooddata-cli-[^<]*)\.zip<.*/' ) {
+		$clzipname = $1;
+		print "found actual version: ${clzipname}.\n";
 	}
-	print "Upload data to secure...";
-	die "Unable to upload to secure." if system("./$zipname/bin/gdi.sh -h secure.gooddata.com -u radek.chromy+hudson\@gooddata.com -p 5up3r74jn3h3510 getQueueLength.script.txt");
-	print "uploaded.\n"
+	else {
+		print "\n WARN: zipfile has not been found on $clzipurl, fallback to $alternateCLUrl";
+		$clzipurl = $alternateCLUrl;
+	}
+
+	my $clzip = $clzipname . ".zip";
+
+	#clear before
+	system("rm -rf $clzipname");
+
+	# download cltool
+	print "Downloading CLI tool from '$clzipurl' ...";
+	my $code = getstore( "$clzipurl/$clzip", $clzip );
+	die "Unable to download cli tool version $clzip errcode: $code"
+	  if $code != 200;
+	print "...downloaded.\n";
+	die "Zip file does not exists (not downloaded)." unless ( -f "$clzip" );
+
+	# unpack cltool
+	print " Unpacking data ... from $clzip\n ";
+	system("unzip -q $clzip");
+
+	# return folder where cltool is located
+	return "$clzipname";
+}
+
+# upload data to gooddata
+sub upload_to_secure {
+	if ( defined($JOB_URL) ) {
+		my $cltool = _get_cl_tool();
+		print "Upload data to secure...";
+		die "Unable to upload to secure."
+		  if system(
+"./$cltool/bin/gdi.sh -h secure.gooddata.com -u radek.chromy+hudson\@gooddata.com -p 5up3r74jn3h3510 getQueueLength.script.txt"
+		  );
+		print "uploaded.\n";
+	}
+	else {
+		print
+		  "\$JOB_URL is not defined, upload to secure is not allowed cause of there are not going to be actual data";
+	}
 }
