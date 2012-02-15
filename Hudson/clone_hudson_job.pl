@@ -9,12 +9,11 @@ use XML::Smart;
 use strict;
 use warnings;
 
-my $hudson_root  = 'https://mackenzie.qa.getgooddata.com/';
+my $hudson_root  = 'https://mackenzie.qa.getgooddata.com';
 
 my $ua          = new LWP::UserAgent;
 $ua->default_headers->authorization_basic ('hudson' => 'p455w0rd');
-$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
-$ENV{HTTPS_DEBUG} = 1;
+#$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
 
 # copy from
 my $from = "gdc-auditlog";
@@ -28,20 +27,20 @@ my $xml = get_original($from);
 $xml = update_config($xml, $to, $branch);
 
 print $xml->data;
-upload_job("$to $branch", $xml);
-
-
-
+#upload_job("$to $branch", $xml);
 
 sub get_original {
     my $job = shift or die;
     print "TODO: Getting: $hudson_root/job/$job/config.xml\n";
-    my $response = $ua->request( GET( new URI('job/$job/config.xml')->abs($hudson_root) ));
-    die "error response code:$response->code" if $response->code != 200; 
+    my $response = $ua->get("$hudson_root/job/$job/config.xml");
+    die "Cant get url" unless $response->is_success;
     
     open( OUTFILE, ">", "config.xml" );
     print OUTFILE $response->content;
     close(OUTFILE);
+    
+    #unless $response->{code} = 200; 
+    die;
 
     my $xml = XML::Smart->new ("config.xml") or die "Unable to parse config file";
     unlink ("config.xml");
