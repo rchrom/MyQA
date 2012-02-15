@@ -9,7 +9,12 @@ use XML::Smart;
 use strict;
 use warnings;
 
-my $HUDSON_ROOT  = 'https://mackenzie.qa.getgooddata.com';
+my $hudson_root  = 'https://mackenzie.qa.getgooddata.com/';
+
+my $ua          = new LWP::UserAgent;
+$ua->default_headers->authorization_basic ('hudson' => 'p455w0rd');
+$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
+$ENV{HTTPS_DEBUG} = 1;
 
 # copy from
 my $from = "gdc-auditlog";
@@ -26,14 +31,23 @@ print $xml->data;
 upload_job("$to $branch", $xml);
 
 
+
+
 sub get_original {
     my $job = shift or die;
-    print "TODO: Getting: $HUDSON_ROOT/job/$job/config.xml\n";
+    print "TODO: Getting: $hudson_root/job/$job/config.xml\n";
+    my $response = $ua->request( GET( new URI('job/$job/config.xml')->abs($hudson_root) ));
+    die "error response code:$response->code" if $response->code != 200; 
     
-    #XML::Smart->new ("$HUDSON_ROOT/job/$job/config.xml")
-    XML::Smart->new ("config.xml")
-		or die;
+    open( OUTFILE, ">", "config.xml" );
+    print OUTFILE $response->content;
+    close(OUTFILE);
+
+    my $xml = XML::Smart->new ("config.xml") or die "Unable to parse config file";
+    unlink ("config.xml");
 }
+
+
 
 sub update_config {
     my $xml = shift or die;
@@ -49,6 +63,7 @@ sub update_config {
 	#traverse and update .... description
 	$xml->{$project_type}{description} = "Build $job in branch $branch";
    
+   
     return $xml;
 }
 
@@ -60,13 +75,13 @@ sub upload_job {
 	
 	my $ua = new LWP::UserAgent;
 	# XXX: encode
-	my $response = $ua->post ("$HUDSON_ROOT/createItem?name=$job",
+	my $response = $ua->post ("$hudson_root/createItem?name=$job",
 		'Content-Type' => 'text/xml',
 		Content => $xml->data);
 	return unless $response->is_error;
 	warn "Could not create a job $job, attempting to update existing";
 
-	$response = $ua->post ("$HUDSON_ROOT/job/$job/config.xml",
+	$response = $ua->post ("$hudson_root/job/$job/config.xml",
 		'Content-Type' => 'text/xml',
 		Content => $xml->data);
 	die $response->content if $response->is_error;
