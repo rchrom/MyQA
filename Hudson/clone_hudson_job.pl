@@ -32,7 +32,8 @@ GetOptions(
 	'b|branch=s'   => \$branch,
 	'u|user=s'     => \$user,
 	'p|password=s' => \$pass,
-	'hudson=s' => \$hudson_root
+	'hudson=s' => \$hudson_root,
+	'debug' => sub {$debug++}
 ) or die "Run $0 -h or $0 -H for details on usage";
 
 # check version of hudson die if it does not match the required version.
