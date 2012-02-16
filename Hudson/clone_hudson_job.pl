@@ -14,13 +14,14 @@ $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
 
 # parameters (script params)
 
-my $toJob;
+my $toJob = "gdc-test";
 my $fromJob = "gdc-auditlog (master)";
 my $branch  = "master";
 my $user    = "hudson";
 my $pass    = "p455w0rd";
-my $gitpath;
 my $hudson_root = 'https://mackenzie.qa.getgooddata.com';
+
+my $debug = 0;
 
 
 GetOptions(
@@ -31,8 +32,7 @@ GetOptions(
 	'b|branch=s'   => \$branch,
 	'u|user=s'     => \$user,
 	'p|password=s' => \$pass,
-	'hudson=s' => \$hudson_root,
-	'git|githubpath=s' => \$gitpath
+	'hudson=s' => \$hudson_root
 ) or die "Run $0 -h or $0 -H for details on usage";
 
 # check version of hudson die if it does not match the required version.
@@ -40,17 +40,20 @@ checkVersion();
 
 die "Job to copy has to be specified!" unless defined($toJob);
 
-$gitpath = "gooddata/${toJob}.git" unless defined($gitpath);
-
+my $gitpath = "gooddata/${toJob}.git";
+my $gitweb = "https://github.com/gooddata/${toJob}/";
 
 # process
 my $xml = get_original($fromJob);
 $xml = update_config( $xml, $toJob, $branch );
 
-#$xml->save('config.xml') ;
-
-upload_job("$toJob ($branch)", $xml);
-
+if ($debug){
+	# debug
+	$xml->save('config.xml') ;
+}else {
+	# comment if debug
+	upload_job("$toJob ($branch)", $xml);
+}
 
 sub checkVersion {
 		my $url = "$hudson_root";
@@ -107,8 +110,11 @@ sub update_config {
 
 	# set branch
 	$scmEntry->{"scm-property"}{"originalValue"}{"branches"}{"hudson.plugins.git.BranchSpec"}{"name"} = "$branch";
+	# set git path
 	$scmEntry->{"scm-property"}{"originalValue"}{"remoteRepositories"}{"RemoteConfig"}{"uris"}
 	  {"org.eclipse.jgit.transport.URIish"}{"path"} = "gooddata/${job}.git";
+	# set git web url
+	$scmEntry->{"scm-property"}{"originalValue"}{"browser"}{"url"} = "$gitweb";
 	return $xml;
 }
 
