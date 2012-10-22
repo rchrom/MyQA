@@ -1,0 +1,141 @@
+#!/usr/bin/perl
+# Copyright (C) 2007-2011, GoodData(R) Corporation. All rights reserved.
+
+use LWP::UserAgent;
+
+use XML::Smart;
+use strict;
+use warnings;
+use Pod::Usage;
+use Getopt::Long qw/:config no_ignore_case/;
+
+#override certification validation
+$ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
+
+# parameters (script params)
+
+my $job = "gdc-test";
+my $user    = "hudson";
+my $pass    = "p455w0rd";
+my $hudson_root = 'https://mackenzie.qa.getgooddata.com';
+my $debug = 1;
+my $entry = "scm";
+my $path = "a/b/c/d";
+my $value ="txt";
+my @treepath;
+
+GetOptions(
+	'h|help' => sub { pod2usage( -verbose => 1 ); exit },
+	'H|man'  => sub { pod2usage( -verbose => 2 ); exit },
+	'job=s'       => \$job,
+	'u|user=s'     => \$user,
+	'p|password=s' => \$pass,
+	'hudson=s' => \$hudson_root,
+	'debug' => sub {$debug++},
+	'entry=s' => \$entry,
+	'path=s' => \$path,
+	'value=s' => \$value
+) or die "Run $0 -h or $0 -H for details on usage";
+
+die "Job has to be specified!" unless defined($job) || defined ($entry);
+
+@treepath = split("/",$path);
+
+# check version of hudson die if it does not match the required version.
+#checkVersion();
+# process
+#my $xml = get_original();
+
+my $xml = XML::Smart->new("config.xml") or die "Unable to parse config file";
+
+$xml = update_config($xml);
+
+if ($debug){
+	# debug
+	$xml->save('config.xml') ;
+}else {
+	# comment if debug
+	upload_job_config("$job", $xml);
+}
+
+sub checkVersion {
+		my $url = "$hudson_root";
+		my $ua = new LWP::UserAgent;
+		$ua->default_headers->authorization_basic( "$user" => "$pass" );
+		my $response = $ua->get("$url");
+		my $version = $response->header("x-hudson");
+		die "Version ($version) is not supported. Requires version at least 2.2 " unless ($version =~ /^2.[2-9]/);		
+}
+
+sub get_original {
+	my $job = shift or die;
+	my $url = "$hudson_root/job/$job/config.xml";
+
+	my $ua = new LWP::UserAgent;
+	$ua->default_headers->authorization_basic( "$user" => "$pass" );
+	print "Getting: $url\n";
+	my $response = $ua->get("$url");
+	die "Error at $url\n ", $response->status_line, "\n Aborting"
+	  if $response->is_error;
+	open( OUTFILE, ">", "config.xml" );
+	print OUTFILE $response->content;
+	close(OUTFILE);
+	my $xml = XML::Smart->new("config.xml") or die "Unable to parse config file";
+
+	unlink("config.xml");
+	return $xml;
+}
+
+sub update_config {
+	my $xml    = shift or die;
+
+	my $entries   = $xml->{project}{"project-properties"};
+	my $lastEntry = $entries->{entry}[-1]{string};
+
+	# set Branch name
+	my $scmEntryName = "";
+
+	# find scm entry node index
+	my $index = -1;
+	while ( !( $scmEntryName eq $lastEntry ) ) {
+
+		$scmEntryName = $entries->{entry}[ ++$index ]{string};
+		last if ( $scmEntryName eq $entry );
+	}
+	die "SCM Entry has not been found in job configuration" if ( $scmEntryName eq $lastEntry );
+
+	my $entryElement = $entries->{entry}[$index];
+	foreach $path (@treepath){
+		$entryElement = $entryElement->{$path};
+	}
+	# set git path
+	$entryElement->back->{$treepath[-1]} = $value;
+	
+	return $xml;
+}
+
+sub upload_job_config {
+	my $job = shift or die;
+	my $xml = shift or die;
+
+	my $ua = new LWP::UserAgent;
+	$ua->default_headers->authorization_basic( "$user" => "$pass" );
+
+	print "Creating $job\n";
+
+	my $response = $ua->post(
+		"$hudson_root/createItem?name=$job",
+		'Content-Type' => 'text/xml',
+		Content        => $xml->data
+	);
+	return unless $response->is_error;
+	warn "Could not create a job $job, attempting to update existing";
+
+	$response = $ua->post(
+		"$hudson_root/job/$job/config.xml",
+		'Content-Type' => 'text/xml',
+		Content        => $xml->data
+	);
+	die "Could not create a job $job\n ", $response->status_line, "\n Aborting."
+	  if $response->is_error;
+}
