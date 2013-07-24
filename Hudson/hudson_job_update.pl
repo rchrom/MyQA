@@ -14,46 +14,48 @@ $ENV{PERL_LWP_SSL_VERIFY_HOSTNAME} = 0;
 
 # parameters (script params)
 
-my $toJob = "gdc-test";
-my $fromJob = "gdc-auditlog (master)";
-my $branch  = "master";
+my $job = "gdc-test";
 my $user    = "hudson";
 my $pass    = "p455w0rd";
 my $hudson_root = 'https://mackenzie.qa.getgooddata.com';
-
-my $debug = 0;
-
+my $debug = 1;
+my $entry = "scm";
+my $path = "a/b/c/d";
+my $value ="txt";
+my @treepath;
 
 GetOptions(
 	'h|help' => sub { pod2usage( -verbose => 1 ); exit },
 	'H|man'  => sub { pod2usage( -verbose => 2 ); exit },
-	'f|from=s'     => \$fromJob,
-	't|to=s'       => \$toJob,
-	'b|branch=s'   => \$branch,
+	'job=s'       => \$job,
 	'u|user=s'     => \$user,
 	'p|password=s' => \$pass,
 	'hudson=s' => \$hudson_root,
-	'debug' => sub {$debug++}
+	'debug' => sub {$debug++},
+	'entry=s' => \$entry,
+	'path=s' => \$path,
+	'value=s' => \$value
 ) or die "Run $0 -h or $0 -H for details on usage";
 
+die "Job has to be specified!" unless defined($job) || defined ($entry);
+
+@treepath = split("/",$path);
+
 # check version of hudson die if it does not match the required version.
-checkVersion();
-
-die "Job to copy has to be specified!" unless defined($toJob);
-
-my $gitpath = "gooddata/${toJob}.git";
-my $gitweb = "https://github.com/gooddata/${toJob}/";
-
+#checkVersion();
 # process
-my $xml = get_original($fromJob);
-$xml = update_config( $xml, $toJob, $branch );
+#my $xml = get_original();
+
+my $xml = XML::Smart->new("config.xml") or die "Unable to parse config file";
+
+$xml = update_config($xml);
 
 if ($debug){
 	# debug
 	$xml->save('config.xml') ;
 }else {
 	# comment if debug
-	upload_job("$toJob ($branch)", $xml);
+	upload_job_config("$job", $xml);
 }
 
 sub checkVersion {
@@ -86,11 +88,6 @@ sub get_original {
 
 sub update_config {
 	my $xml    = shift or die;
-	my $job    = shift or die;
-	my $branch = shift or die;
-
-	# set Description
-	$xml->{project}{description} = "Build $job in branch $branch. (Created by $user).";
 
 	my $entries   = $xml->{project}{"project-properties"};
 	my $lastEntry = $entries->{entry}[-1]{string};
@@ -103,23 +100,21 @@ sub update_config {
 	while ( !( $scmEntryName eq $lastEntry ) ) {
 
 		$scmEntryName = $entries->{entry}[ ++$index ]{string};
-		last if ( $scmEntryName eq "scm" );
+		last if ( $scmEntryName eq $entry );
 	}
 	die "SCM Entry has not been found in job configuration" if ( $scmEntryName eq $lastEntry );
 
-	my $scmEntry = $entries->{entry}[$index];
-
-	# set branch
-	$scmEntry->{"scm-property"}{"originalValue"}{"branches"}{"hudson.plugins.git.BranchSpec"}{"name"} = "$branch";
+	my $entryElement = $entries->{entry}[$index];
+	foreach $path (@treepath){
+		$entryElement = $entryElement->{$path};
+	}
 	# set git path
-	$scmEntry->{"scm-property"}{"originalValue"}{"remoteRepositories"}{"RemoteConfig"}{"uris"}
-	  {"org.eclipse.jgit.transport.URIish"}{"path"} = "gooddata/${job}.git";
-	# set git web url
-	$scmEntry->{"scm-property"}{"originalValue"}{"browser"}{"url"} = "$gitweb";
+	$entryElement->back->{$treepath[-1]} = $value;
+	
 	return $xml;
 }
 
-sub upload_job {
+sub upload_job_config {
 	my $job = shift or die;
 	my $xml = shift or die;
 
@@ -144,27 +139,3 @@ sub upload_job {
 	die "Could not create a job $job\n ", $response->status_line, "\n Aborting."
 	  if $response->is_error;
 }
-
-__END__
-
-=head1 NAME
-
-  clone_hudosn_job.pl - Clone Hudson job
-    
-=head1 SYNOPSIS
-
-  clone_hudson_job.pl -t <job> [options] 
-
-  Options:
-    -help            brief help message
-    -man             full documentation
-    -t|to            Job to be created
-    -f|from          Template fro the new job
-    -b|branch        Branch definition for the new job
-    -u|user          Username to access Hudson
-    -p|password      Password to access Hudson
-	-hudson			 Hudson URL
-=head1 DESCRIPTION
-    
-    The main purpose is to clone hudson jobs.
-=cut
